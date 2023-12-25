@@ -1,85 +1,81 @@
 <html>
 <head></head>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-    <script lang="js">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script lang="js">
+    
+    async function run(){
+        const trainingUrl = '/data/wdbc-train.csv';
         
-        async function run(){
-            const trainingUrl = '/data/wdbc-train.csv';
-            
-            // Take a look at the 'wdbc-train.csv' file and specify the column
-            // that should be treated as the label in the space below.
-            // HINT: Remember that you are trying to build a classifier that 
-            // can predict from the data whether the diagnosis is malignant or benign.
-            const trainingData = tf.data.csv(trainingUrl, {
-                
-                // YOUR CODE HERE
-                
-            });
-            
-            // Convert the training data into arrays in the space below.
-            // Note: In this case, the labels are integers, not strings.
-            // Therefore, there is no need to convert string labels into
-            // a one-hot encoded array of label values like we did in the
-            // Iris dataset example. 
-            const convertedTrainingData = // YOUR CODE HERE
-                  
-            const testingUrl = '/data/wdbc-test.csv';
-            
-            // Take a look at the 'wdbc-test.csv' file and specify the column
-            // that should be treated as the label in the space below..
-            // HINT: Remember that you are trying to build a classifier that 
-            // can predict from the data whether the diagnosis is malignant or benign.
-            const testingData = tf.data.csv(testingUrl, {
-                
-                // YOUR CODE HERE
-                
-            });
-            
-            // Convert the testing data into arrays in the space below.
-            // Note: In this case, the labels are integers, not strings.
-            // Therefore, there is no need to convert string labels into
-            // a one-hot encoded array of label values like we did in the
-            // Iris dataset example. 
-            const convertedTestingData = // YOUR CODE HERE
-                  
+        // Specify the label column for training data
+        const trainingData = tf.data.csv(trainingUrl, {
+            columnConfigs: {
+                diagnosis: {
+                    isLabel: true
+                }
+            }
+        });
+        
+        // Convert the training data into arrays
+        const convertedTrainingData = await convertDataToArray(trainingData);
+              
+        const testingUrl = '/data/wdbc-test.csv';
+        
+        // Specify the label column for testing data
+        const testingData = tf.data.csv(testingUrl, {
+            columnConfigs: {
+                diagnosis: {
+                    isLabel: true
+                }
+            }
+        });
+        
+        // Convert the testing data into arrays
+        const convertedTestingData = await convertDataToArray(testingData);
 
-            // Specify the number of features in the space below.
-            // HINT: You can get the number of features from the number of columns
-            // and the number of labels in the training data. 
-            const numOfFeatures = // YOUR CODE HERE
-            
-                
-            // In the space below create a neural network that predicts 1 if the diagnosis is malignant
-            // and 0 if the diagnosis is benign. Your neural network should only use dense
-            // layers and the output layer should only have a single output unit with a
-            // sigmoid activation function. You are free to use as many hidden layers and
-            // neurons as you like.  
-            // HINT: Make sure your input layer has the correct input shape. We also suggest
-            // using ReLu activation functions where applicable. For this dataset only a few
-            // hidden layers should be enough to get a high accuracy.  
-            const model = tf.sequential();
-            
-            // YOUR CODE HERE
+        // Specify the number of features
+        const numOfFeatures = convertedTrainingData.xs.shape[1];
+        
+        // Create a neural network
+        const model = tf.sequential();
+        
+        // Add layers to the model
+        model.add(tf.layers.dense({inputShape: [numOfFeatures], units: 64, activation: 'relu'}));
+        model.add(tf.layers.dense({units: 32, activation: 'relu'}));
+        model.add(tf.layers.dense({units: 1, activation: 'sigmoid'}));
 
-            
-            
-            // Compile the model using the binaryCrossentropy loss, 
-            // the rmsprop optimizer, and accuracy for your metrics. 
-            model.compile(// YOUR CODE HERE);
-            
-            
-            await model.fitDataset(convertedTrainingData, 
-                             {epochs:100,
-                              validationData: convertedTestingData,
-                              callbacks:{
-                                  onEpochEnd: async(epoch, logs) =>{
-                                      console.log("Epoch: " + epoch + " Loss: " + logs.loss + " Accuracy: " + logs.acc);
-                                  }
-                              }});
-            await model.save('downloads://my_model');
-        }
-        run();
-    </script>
+        // Compile the model
+        model.compile({
+            optimizer: tf.train.rmsprop(),
+            loss: 'binaryCrossentropy',
+            metrics: ['accuracy']
+        });
+        
+        // Fit the model to the training data
+        await model.fit(convertedTrainingData.xs, convertedTrainingData.ys, {
+            epochs: 100,
+            validationData: [convertedTestingData.xs, convertedTestingData.ys],
+            callbacks: {
+                onEpochEnd: async(epoch, logs) => {
+                    console.log("Epoch: " + epoch + " Loss: " + logs.loss + " Accuracy: " + logs.acc);
+                }
+            }
+        });
+        
+        // Save the model
+        await model.save('downloads://my_model');
+    }
+
+    async function convertDataToArray(data) {
+        const dataArray = await data.toArray();
+        const labels = dataArray.map(item => item.diagnosis === 'M' ? 1 : 0);
+        const features = dataArray.map(item => Object.values(item).slice(1).map(Number));
+        const xs = tf.tensor2d(features);
+        const ys = tf.tensor1d(labels);
+        return { xs, ys };
+    }
+
+    run();
+</script>
 <body>
 </body>
 </html>
